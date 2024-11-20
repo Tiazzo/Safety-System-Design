@@ -2,6 +2,8 @@ import os
 import json
 import numpy as np
 from pathlib import Path
+import shutil
+from sklearn.model_selection import train_test_split
 
 
 # Check if every images in the dataset has a corresponding label
@@ -102,3 +104,52 @@ def labelme_to_coco(labelme_dir, output_file):
         json.dump(coco_format, f, indent=4)
 
     print(f"COCO annotations saved to {output_file}")
+
+# Function to split dataset into train, validation, and test sets
+def split_augmented_dataset(augmented_images_dir, augmented_masks_dir, output_dir, train_ratio=0.7, val_ratio=0.2):
+    """
+    Splits the augmented dataset into train, val, and test sets.
+
+    Parameters:
+        augmented_images_dir (str): Directory containing augmented images.
+        augmented_masks_dir (str): Directory containing augmented masks.
+        output_dir (str): Base directory for the split datasets.
+        train_ratio (float): Proportion of data for training (default: 0.7).
+        val_ratio (float): Proportion of data for validation (default: 0.2).
+    """
+    # Get all images and masks
+    images = sorted(Path(augmented_images_dir).glob("*.jpg"))
+    masks = sorted(Path(augmented_masks_dir).glob("*.png"))
+
+    # Ensure images and masks match
+    assert len(images) == len(masks), "Number of images and masks do not match!"
+    for img, mask in zip(images, masks):
+        assert img.stem == mask.stem, f"Mismatch: {img.stem} and {mask.stem}"
+
+    # Split dataset into train, val, and test
+    train_images, temp_images, train_masks, temp_masks = train_test_split(
+        images, masks, test_size=(1 - train_ratio), random_state=42
+    )
+    val_ratio_adjusted = val_ratio / (1 - train_ratio)  # Adjust for remaining data
+    val_images, test_images, val_masks, test_masks = train_test_split(
+        temp_images, temp_masks, test_size=(1 - val_ratio_adjusted), random_state=42
+    )
+
+    # Define output directories
+    splits = {"train": (train_images, train_masks), 
+              "val": (val_images, val_masks), 
+              "test": (test_images, test_masks)}
+
+    for split, (split_images, split_masks) in splits.items():
+        split_image_dir = Path(output_dir) / split / "images"
+        split_mask_dir = Path(output_dir) / split / "masks"
+        split_image_dir.mkdir(parents=True, exist_ok=True)
+        split_mask_dir.mkdir(parents=True, exist_ok=True)
+
+        # Move files to respective directories
+        for img, mask in zip(split_images, split_masks):
+            shutil.copy(img, split_image_dir / img.name)
+            shutil.copy(mask, split_mask_dir / mask.name)
+
+    print(f"Dataset split into train, val, and test sets in {output_dir}")
+
