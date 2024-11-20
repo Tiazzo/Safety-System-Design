@@ -2,6 +2,8 @@ import os
 import shutil
 from collections import defaultdict
 import random
+import json
+from pathlib import Path
 from sklearn.model_selection import train_test_split
 
 
@@ -122,6 +124,44 @@ def separate_files(source_dir, images_dir, json_dir):
     print(f"All files have been moved: Images -> '{images_dir}', JSON -> '{json_dir}'.")
 
 
+# Function to cleanup the path of JSON files
+def clean_image_path(labelme_dir):
+    """
+    Cleans and splits the `imagePath` field in LabelMe JSON files, removing unnecessary directory paths.
+
+    Parameters:
+        labelme_dir (str): Directory containing LabelMe JSON files.
+    """
+    # Iterate over all JSON files in the directory
+    for json_file in Path(labelme_dir).glob("*.json"):
+        try:
+            # Load the JSON file
+            with open(json_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            # Get the original imagePath
+            original_path = data.get("imagePath", "")
+
+            # Use split on '\\' to extract the file name if needed
+            if "\\" in original_path:
+                new_path = original_path.split("\\")[-1]
+                data["imagePath"] = new_path  # Update the imagePath field
+
+                # Save the updated JSON back to the file
+                with open(json_file, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=4)
+
+                print(
+                    f"Updated imagePath in {json_file.name}: '{original_path}' -> '{new_path}'"
+                )
+            else:
+                print(
+                    f"No changes needed for {json_file.name} (imagePath: '{original_path}')"
+                )
+        except Exception as e:
+            print(f"Failed to process {json_file.name}: {e}")
+
+
 def main():
     """
     Main function to execute operations based on user choice.
@@ -130,7 +170,8 @@ def main():
     print("1. Select images by category")
     print("2. Split dataset into train, validation, and test")
     print("3. Separate images (.jpg) and annotations (.json)")
-    choice = input("Enter your choice (1, 2, or 3): ")
+    print("4. Clean image paths in JSON files")
+    choice = input("Enter your choice (1, 2, 3 or 4): ")
 
     if choice == "1":
         dataset_dir = "data/processed/images"
@@ -150,6 +191,10 @@ def main():
         images_dir = "/Users/mattiacarlino/Politecnico coding/Safety-System-Design/data/with_labels/images"
         json_dir = "/Users/mattiacarlino/Politecnico coding/Safety-System-Design/data/with_labels/json"
         separate_files(source_dir, images_dir, json_dir)
+    elif choice == "4":
+        labelme_dir = "data/with_labels/json"
+        clean_image_path(labelme_dir)
+
     else:
         print("Invalid choice. Exiting.")
 
