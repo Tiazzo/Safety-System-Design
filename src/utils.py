@@ -4,8 +4,6 @@ import numpy as np
 from pathlib import Path
 
 
-
-
 # Check if every images in the dataset has a corresponding label
 def check_images_labels(images_path, labels_path):
     images = os.listdir(images_path)
