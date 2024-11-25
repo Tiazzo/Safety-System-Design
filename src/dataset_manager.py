@@ -7,7 +7,7 @@ from pathlib import Path
 from sklearn.model_selection import train_test_split
 
 
-def select_images_by_category(dataset_dir, output_dir, total_images=200):
+def select_images_by_category(dataset_dir, output_dir, total_images=400):
     """
     Selects a total of `total_images` distributed equally across categories
     (first letter in filenames) and saves them to the specified output directory.
@@ -176,7 +176,7 @@ def main():
     if choice == "1":
         dataset_dir = "data/processed/images"
         output_dir = "data/train/images"
-        total_images = 200
+        total_images = 400
         select_images_by_category(dataset_dir, output_dir, total_images)
     elif choice == "2":
         labeled_dir = "data/labeled/images"
