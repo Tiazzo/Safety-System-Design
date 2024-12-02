@@ -170,3 +170,6 @@ data/train/images
 .DS_Store
 data/
 images/
+
+# Runs
+runs/*
