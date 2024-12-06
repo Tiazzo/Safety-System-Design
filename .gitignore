@@ -173,3 +173,8 @@ images/
 
 # Runs
 runs/*
+
+# Models
+best_model.pth 
+yolo11*
+checkpoint_epoch*
