@@ -1,5 +1,7 @@
 import os
 import shutil
+import pandas as pd
+import cv2
 from collections import defaultdict
 import random
 import json
@@ -162,6 +164,99 @@ def clean_image_path(labelme_dir):
             print(f"Failed to process {json_file.name}: {e}")
 
 
+def select_additional_images(
+    dataset_dir, output_dir, previous_images_dir, total_images=400
+):
+    """
+    Selects a total of `total_images` distributed equally across categories
+    (first letter in filenames) while excluding previously selected images.
+    Saves the new images to the specified output directory.
+
+    Parameters:
+        dataset_dir (str): Directory containing the original dataset.
+        output_dir (str): Directory to save the newly selected images.
+        previous_images_dir (str): Directory containing previously selected images.
+        total_images (int): Total number of new images to select.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Collect previously selected images
+    previously_selected = set(os.listdir(previous_images_dir))
+
+    # Group images by category while excluding previously selected ones
+    categories = defaultdict(list)
+    for filename in os.listdir(dataset_dir):
+        if filename.endswith(".jpg") and filename not in previously_selected:
+            category = filename.split("_")[
+                0
+            ]  # Category based on the first part of the name
+            categories[category].append(filename)
+
+    # Calculate the number of images per category
+    total_categories = len(categories)
+    images_per_category = total_images // total_categories
+
+    # Select new images
+    selected_images = []
+    for category, files in categories.items():
+        random.shuffle(files)
+        selected_images.extend(files[:images_per_category])
+
+    # Ensure exactly `total_images`
+    if len(selected_images) < total_images:
+        extra_needed = total_images - len(selected_images)
+        remaining_files = [
+            f
+            for category, files in categories.items()
+            for f in files
+            if f not in selected_images
+        ]
+        random.shuffle(remaining_files)
+        selected_images.extend(remaining_files[:extra_needed])
+
+    # Copy selected images to the output directory
+    for filename in selected_images:
+        shutil.copy(
+            os.path.join(dataset_dir, filename), os.path.join(output_dir, filename)
+        )
+
+    print(f"Selected {len(selected_images)} new images. Saved in '{output_dir}'.")
+
+
+def manual_labeling(images_dir, output_csv):
+    """
+    Manually label car orientation as 'left' or 'right'.
+
+    Parameters:
+        images_dir (str): Directory containing images to label.
+        output_csv (str): Path to save the labels as a CSV file.
+    """
+    images = sorted(Path(images_dir).glob("*.jpg"))
+    labels = []
+
+    for image_path in images:
+        # Display the image
+        image = cv2.imread(str(image_path))
+        cv2.imshow("Label this image (Press 'l' for left, 'r' for right)", image)
+
+        # Wait for user input
+        key = cv2.waitKey(0)  # Wait indefinitely for key press
+        if key == ord("l"):
+            labels.append({"image": image_path.name, "label": "left"})
+        elif key == ord("r"):
+            labels.append({"image": image_path.name, "label": "right"})
+        elif key == ord("q"):
+            print("Exiting manual labeling...")
+            break  # Exit labeling if 'q' is pressed
+
+        # Close the image window
+        cv2.destroyAllWindows()
+
+    # Save labels to CSV
+    pd.DataFrame(labels).to_csv(output_csv, index=False)
+    print(f"Labels saved to {output_csv}")
+
+
 def main():
     """
     Main function to execute operations based on user choice.
@@ -171,7 +266,9 @@ def main():
     print("2. Split dataset into train, validation, and test")
     print("3. Separate images (.jpg) and annotations (.json)")
     print("4. Clean image paths in JSON files")
-    choice = input("Enter your choice (1, 2, 3 or 4): ")
+    print("5. Manually label orientation images")
+    print("6. Select additional images")
+    choice = input("Enter your choice (1, 2, 3, 4, 5, 6): ")
 
     if choice == "1":
         dataset_dir = "data/processed/images"
@@ -194,7 +291,18 @@ def main():
     elif choice == "4":
         labelme_dir = "data/with_labels/json"
         clean_image_path(labelme_dir)
-
+    elif choice == "5":
+        images_dir = "data/split/train/images"
+        output_csv = "data/split/labels.csv"
+        manual_labeling(images_dir, output_csv)
+    elif choice == "6":
+        dataset_dir = "data/processed/images"
+        output_dir = "data/train/new_images"
+        previous_images_dir = "data/train/images"
+        total_images = 400
+        select_additional_images(
+            dataset_dir, output_dir, previous_images_dir, total_images
+        )
     else:
         print("Invalid choice. Exiting.")
 

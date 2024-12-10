@@ -1,6 +1,7 @@
 import os
 import json
 import numpy as np
+import cv2
 from pathlib import Path
 import shutil
 from sklearn.model_selection import train_test_split
@@ -18,7 +19,7 @@ def check_images_labels(images_path, labels_path):
     labels = {
         os.path.splitext(f)[0]
         for f in os.listdir(labels_path)
-        if f.endswith(".txt") and not f.startswith(".")
+        if f.endswith(".json") and not f.startswith(".")
     }
     if set(images) == set(labels):
         print("All images have corresponding labels")
@@ -35,6 +36,15 @@ def get_num_images(images_path):
             f
             for f in os.listdir(images_path)
             if f.endswith(".jpg") and not f.startswith(".")
+        ]
+    )
+
+def get_num_labels(labels_path):
+    return len(
+        [
+            f
+            for f in os.listdir(labels_path)
+            if f.endswith(".json") and not f.startswith(".")
         ]
     )
 
@@ -105,18 +115,15 @@ def labelme_to_coco(labelme_dir, output_file):
 
     print(f"COCO annotations saved to {output_file}")
 
-# Function to split dataset into train, validation, and test sets
-def split_augmented_dataset(augmented_images_dir, augmented_masks_dir, output_dir, train_ratio=0.7, val_ratio=0.2):
-    """
-    Splits the augmented dataset into train, val, and test sets.
 
-    Parameters:
-        augmented_images_dir (str): Directory containing augmented images.
-        augmented_masks_dir (str): Directory containing augmented masks.
-        output_dir (str): Base directory for the split datasets.
-        train_ratio (float): Proportion of data for training (default: 0.7).
-        val_ratio (float): Proportion of data for validation (default: 0.2).
-    """
+# Function to split dataset into train, validation, and test sets
+def split_augmented_dataset(
+    augmented_images_dir,
+    augmented_masks_dir,
+    output_dir,
+    train_ratio=0.8,
+    val_ratio=0.1,
+):
     # Get all images and masks
     images = sorted(Path(augmented_images_dir).glob("*.jpg"))
     masks = sorted(Path(augmented_masks_dir).glob("*.png"))
@@ -126,19 +133,25 @@ def split_augmented_dataset(augmented_images_dir, augmented_masks_dir, output_di
     for img, mask in zip(images, masks):
         assert img.stem == mask.stem, f"Mismatch: {img.stem} and {mask.stem}"
 
-    # Split dataset into train, val, and test
+    # Split dataset into train and temp (val + test)
     train_images, temp_images, train_masks, temp_masks = train_test_split(
         images, masks, test_size=(1 - train_ratio), random_state=42
     )
-    val_ratio_adjusted = val_ratio / (1 - train_ratio)  # Adjust for remaining data
+
+    # Calculate the ratio for validation and test from the remaining data
+    val_ratio_adjusted = val_ratio / (1 - train_ratio)  # Adjust for remaining data (10%)
+    
+    # Split temp into val and test
     val_images, test_images, val_masks, test_masks = train_test_split(
         temp_images, temp_masks, test_size=(1 - val_ratio_adjusted), random_state=42
     )
 
     # Define output directories
-    splits = {"train": (train_images, train_masks), 
-              "val": (val_images, val_masks), 
-              "test": (test_images, test_masks)}
+    splits = {
+        "train": (train_images, train_masks),
+        "val": (val_images, val_masks),
+        "test": (test_images, test_masks),
+    }
 
     for split, (split_images, split_masks) in splits.items():
         split_image_dir = Path(output_dir) / split / "images"
@@ -146,10 +159,70 @@ def split_augmented_dataset(augmented_images_dir, augmented_masks_dir, output_di
         split_image_dir.mkdir(parents=True, exist_ok=True)
         split_mask_dir.mkdir(parents=True, exist_ok=True)
 
-        # Move files to respective directories
+        # Copy files to respective directories
         for img, mask in zip(split_images, split_masks):
             shutil.copy(img, split_image_dir / img.name)
             shutil.copy(mask, split_mask_dir / mask.name)
 
     print(f"Dataset split into train, val, and test sets in {output_dir}")
+    print("apapapapappa")
+
+def correct_image_rotation(input_dir, output_dir):
+    """
+    Corrects the rotation of car images to ensure all cars are horizontal.
+
+    Parameters:
+        input_dir (str): Directory containing input images.
+        output_dir (str): Directory to save corrected images.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    print('Hello')
+
+    for image_path in Path(input_dir).glob("*.jpg"):
+        # Load the image
+        image = cv2.imread(str(image_path))
+        if image is None:
+            print(f"Could not read the image at {image_path}. Skipping.")
+            continue
+
+        # Convert to grayscale
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        # Create a binary mask: Threshold to separate the car from the background
+        _, thresh = cv2.threshold(gray, 1, 255, cv2.THRESH_BINARY)
+
+        # Find contours in the thresholded image
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        if contours:
+            # Find the largest contour
+            largest_contour = max(contours, key=cv2.contourArea)
+
+            # Get the minimum area rectangle that bounds the largest contour
+            rect = cv2.minAreaRect(largest_contour)
+            box = cv2.boxPoints(rect)
+            box = np.intp(box)
+
+            # Extract the angle from the rectangle
+            angle = rect[-1]
+
+            # Correct the angle to ensure horizontal alignment
+            if angle < -45:
+                angle = 90 + angle
+            elif angle > 45:
+                angle = angle - 90
+
+            # Rotate the image
+            (h, w) = image.shape[:2]
+            center = (w // 2, h // 2)
+            rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
+            rotated = cv2.warpAffine(image, rotation_matrix, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0))
+
+            # Save the corrected image
+            output_path = os.path.join(output_dir, image_path.name)
+            cv2.imwrite(output_path, rotated)
+            print(f"Saved corrected image: {output_path}")
+        else:
+            print(f"No contours found in {image_path}. Skipping.")
+
 
