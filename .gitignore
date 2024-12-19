@@ -175,6 +175,7 @@ images/
 runs/*
 
 # Models
-best_model.pth 
+*.pth 
 yolo11*
 checkpoint_epoch*
+*.pt
