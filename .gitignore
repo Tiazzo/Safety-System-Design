@@ -170,3 +170,12 @@ data/train/images
 .DS_Store
 data/
 images/
+
+# Runs
+runs/*
+
+# Models
+*.pth 
+yolo11*
+checkpoint_epoch*
+*.pt
