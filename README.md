@@ -7,7 +7,7 @@ This project was conducted in collaboration with Autoliv to automate the labelin
 ### Before you get started
 - It is **recommended** to use a Python virtual environment (venv) for libraries and packages
   - To create a venv with necessary libraries and packages, run the following file:
-  - `/notebooks/initialisation_setup.py` 
+  - `/notebooks/installation_setup.py` 
 
 - If you want to train the models (U-Net & YOLOv11) please download the **images** and **labels** from [the  GP22 dataset](https://zenodo.org/records/6366808)  containing 1,480 pictures of cars with corresponding feature labels
  
