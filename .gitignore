@@ -171,9 +171,6 @@ data/train/images
 data/
 images/
 
-# Runs
-runs/*
-
 # Models
 *.pth 
 yolo11*
