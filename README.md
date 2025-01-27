@@ -12,7 +12,7 @@ This project was conducted in collaboration with Autoliv to automate the labelin
 - If you want to train the models (U-Net & YOLOv11) please download the **images** and **labels** from [the  GP22 dataset](https://zenodo.org/records/6366808)  containing 1,480 pictures of cars with corresponding feature labels
  
 ### Available notebooks
-*(If you want to train the models, you need to **first** run the `preprocessing notebook`)*
+*(If you want to train the models, you need to **first** run the `preprocess notebook`)*
 
 #### Preprocessing & Data Augmentation
 The following notebook contains the necessary steps to prepare the dataset for training. Steps included: `Removing background`, `Flipping cars`, `Scaling cars`, `Data augmentation`
