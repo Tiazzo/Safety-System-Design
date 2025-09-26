@@ -1,5 +1,4 @@
 # Safety-System-Design 🚗
-### Group E -  Mattia Carlino, Mikael Motin, Lorenzo Paravano, Yusheng Yang
 
 ### Introduction
 This project was conducted in collaboration with Autoliv to automate the labeling process of side-view car windows using image segmentation
